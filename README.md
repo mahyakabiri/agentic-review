@@ -26,7 +26,7 @@ Summary: 1 critical · 2 warnings · 1 suggestion
 
 ## Why this exists
 
-At [Snapp](https://snapp.ir) — Iran's largest ride-hailing platform — I introduced Claude Code-based workflows into our frontend team's daily code review process. The result was a **35% reduction in time spent on routine review comments**, freeing engineers to focus on architecture and product decisions rather than mechanical feedback.
+I introduced Claude Code-based workflows into daily code review process. The result was a **35% reduction in time spent on routine review comments**, freeing engineers to focus on architecture and product decisions rather than mechanical feedback.
 
 This project is the public version of that idea: a standalone, composable CLI that any engineering team can drop into their workflow or CI pipeline.
 
