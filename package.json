@@ -4,11 +4,16 @@
   "description": "CLI tool that reviews Git PR diffs using the Claude Agent SDK",
   "type": "module",
   "bin": {
-    "agentic-review": "./dist/index.js"
+    "agentic-review": "./dist/src/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "dev": "npx tsx src/index.ts",
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "vitest",
     "test:run": "vitest run"
   },
