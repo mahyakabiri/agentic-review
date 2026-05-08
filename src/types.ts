@@ -4,3 +4,4 @@ export type PRFile = RestEndpointMethodTypes["pulls"]["listFiles"]["response"]["
 export type PR = RestEndpointMethodTypes["pulls"]["get"]["response"]["data"]
 export type Pass = "full" | "structure";
 export type Mode = "BUGS" | "SECURITY" | "PERFORMANCE" | "GENERAL";
+export type Context = "diff" | "full";
