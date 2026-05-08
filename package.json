@@ -1,6 +1,6 @@
 {
   "name": "agentic-review",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CLI tool that reviews Git PR diffs using the Claude Agent SDK",
   "license": "MIT",
   "keywords": [
