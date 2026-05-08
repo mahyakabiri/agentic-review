@@ -1,6 +1,6 @@
 import { Octokit } from "@octokit/rest";
 
-class GitHubService {
+export class GitHubService {
   private octokit: Octokit;
 
   constructor(token: string) {
