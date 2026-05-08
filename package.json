@@ -1,9 +1,16 @@
 {
   "name": "agentic-review",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "CLI tool that reviews Git PR diffs using the Claude Agent SDK",
   "license": "MIT",
-  "keywords": ["cli", "code-review", "github", "pull-request", "claude", "ai"],
+  "keywords": [
+    "cli",
+    "code-review",
+    "github",
+    "pull-request",
+    "claude",
+    "ai"
+  ],
   "type": "module",
   "bin": {
     "agentic-review": "./dist/index.js"
