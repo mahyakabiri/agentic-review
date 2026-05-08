@@ -5,9 +5,11 @@ import { githubService } from "./github";
 import type { Pass, PRFile } from "./types";
 import { spinner } from "../utils/spinner";
 import { formatFileHeader, formatResult } from "../utils/formatter";
+import { loadRules } from "../utils/rules";
 
 const LARGE_FILE_THRESHOLD = 200;
 
+const rules = loadRules();
 const files: PRFile[] = await githubService.getDiff(owner, repo, Number(pull_number));
 
 for (const file of files) {
@@ -23,7 +25,7 @@ for (const file of files) {
   const stop = spinner("reviewing...");
 
   for await (const message of query({
-    prompt: buildPrompt(file, pass, mode, fullContent),
+    prompt: buildPrompt(file, pass, mode, fullContent, rules),
     options: {
       settingSources: ["user", "project"],
       allowedTools: ["Skill", "Read", "Grep", "Glob"],
