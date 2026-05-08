@@ -4,26 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`agentic-review` — a CLI tool that accepts a Git PR diff and produces structured, actionable code review comments using the Claude Agent SDK as the agentic layer.
-
-## Setup
-
-```bash
-npm install
-export ANTHROPIC_API_KEY=your_key_here
-```
+`agentic-review` — a CLI tool that fetches a GitHub PR's file-by-file diff via the Octokit REST API and reviews each file using `query()` from `@anthropic-ai/claude-agent-sdk`.
 
 ## Commands
 
 ```bash
-# Run the CLI from a diff file
-node dist/index.js --diff ./my.diff
+# Requires Node 18+ — use nvm if system node is older
+nvm use 20
 
-# Pipe from git
-git diff main...HEAD | node dist/index.js --stdin
-
-# Run tests
-npx vitest
+npm install
+npm run dev          # run src/index.ts via tsx (no build step)
+npm run build        # tsc → dist/
+npm test             # vitest watch
+npm run test:run     # vitest single run (CI)
 
 # Run a single test file
 npx vitest src/path/to/file.test.ts
@@ -31,42 +24,49 @@ npx vitest src/path/to/file.test.ts
 
 ## Architecture
 
-The pipeline is: **parse & chunk diff → Claude Agent SDK (one turn per file/chunk) → format output**.
+Pipeline: **resolve owner/repo/PR → fetch files via Octokit → one `query()` per file → format + output**.
 
-### Diff chunking (`src/diff/`)
-Diffs are chunked by file, not by line count, so each agent turn reviews a coherent unit of change. Files above a configurable line threshold get two passes: structure first, then implementation details.
+### GitHub integration
+Owner and repo are inferred from `git remote get-url origin` (handles both SSH and HTTPS). PR number comes from the `--pr` CLI flag. Files are fetched with `octokit.rest.pulls.listFiles()` — each file object carries `filename`, `patch` (unified diff), `status`, `additions`, `deletions`.
 
-### Agent layer (`src/agent/`)
-Uses `@anthropic-ai/claude-agent-sdk`'s `query()` function, which streams structured messages and manages multi-turn context natively. This lets the agent cross-reference findings across files (e.g., flag duplication between files already reviewed) without manual state management.
+### Agent layer (`src/index.ts` → `src/agent/`)
+One `query()` call per file. The prompt explicitly provides the diff so the agent doesn't need to explore the filesystem. Large files (above a configurable `additions + deletions` threshold) get two passes: structure first, then implementation details.
+
+`query()` is called with:
+```typescript
+options: {
+  allowedTools: ['Skill', 'Read'],
+  settingSources: ['project'],   // loads .claude/skills/
+}
+```
+
+### Skill (`.claude/skills/code-review.md`)
+Accepts a `MODE` argument: `BUGS`, `SECURITY`, `PERFORMANCE`, combinations, or empty for general review. The prompt passes the mode via `$ARGUMENTS` and overrides the skill's "explore codebase" instruction by providing the diff directly.
 
 ### CLI (`src/cli/`)
-Built with `commander`. Entry point at `src/index.ts`. Flags: `--diff <path>`, `--stdin`, `--format inline|json|markdown`, `--fail-on critical|warning`.
+Built with `commander`. Flags: `--pr <number>`, `--mode <mode>`, `--format inline|json|markdown`, `--fail-on critical|warning`.
 
 ### Output formatter (`src/formatter/`)
-Uses `chalk` for coloured inline output. JSON and Markdown modes emit machine-readable output for CI integration.
+Parses structured lines from the agent's result and renders with `chalk`. Expected agent output format:
+```
+🚨 line <N>  <issue>
+⚠  line <N>  <issue>
+💡 line <N>  <issue>
+✅  No issues found
+```
 
 ### Configuration
 Optional `agentic-review.config.json` in the project root:
 ```json
 {
-  "language": "typescript",
-  "framework": "react",
   "strictness": "standard",
   "ignore": ["*.test.ts", "dist/**"],
-  "focus": ["security", "performance", "accessibility"],
-  "maxFilesPerRun": 10
+  "focus": ["security", "performance"],
+  "maxFilesPerRun": 10,
+  "largeFileThreshold": 200
 }
 ```
 
 ## MCP
 
-`.mcp.json` configures an MCP filesystem server scoped to `/Users/me/projects`. Update the path if working locally.
-
-## Review severity levels
-
-| Symbol | Level | Meaning |
-|--------|-------|---------|
-| 🚨 | Critical | Security, data loss, broken API contracts |
-| ⚠ | Warning | Correctness, performance, type safety |
-| 💡 | Suggestion | Duplication, naming, readability |
-| ✅ | Clear | Nothing flagged |
+`.mcp.json` configures an MCP filesystem server. Update the path from `/Users/me/projects` to your local projects directory.
