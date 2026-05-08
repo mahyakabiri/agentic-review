@@ -14,7 +14,7 @@ nvm use 20
 
 npm install
 npm run dev          # run src/index.ts via tsx (no build step)
-npm run build        # tsc → dist/
+npm run build        # vite build → dist/
 npm test             # vitest watch
 npm run test:run     # vitest single run (CI)
 
