@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { PRFile } from "../src/types";
 
 export function getDiff(files: PRFile[]) {
@@ -27,3 +28,26 @@ export function parsePRUrl(rawUrl: string): {
       pull_number: parseInt(parts[3], 10),
     };
   }
+
+export function formatFileHeader(file: PRFile): string {
+  const name = chalk.bold.cyan(file.filename);
+  const additions = chalk.green(`+${file.additions}`);
+  const deletions = chalk.red(`-${file.deletions}`);
+  const pass = file.additions + file.deletions > 200
+    ? chalk.yellow(' [structure pass]')
+    : '';
+  return `\n── ${name} (${additions}/${deletions})${pass}`;
+}
+
+export function formatResult(result: string): string {
+  return result
+    .split('\n')
+    .map(line => {
+      if (line.startsWith('🚨')) return chalk.red(line);
+      if (line.startsWith('⚠'))  return chalk.yellow(line);
+      if (line.startsWith('💡')) return chalk.cyan(line);
+      if (line.startsWith('✅')) return chalk.green(line);
+      return chalk.white(line);
+    })
+    .join('\n');
+}
