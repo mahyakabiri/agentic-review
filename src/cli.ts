@@ -1,4 +1,5 @@
 import { Command } from 'commander';  
+import type { Mode } from './types';
 
 const program = new Command(); 
 
@@ -9,7 +10,7 @@ program.parse();
 const url = new URL(program.opts().url);                                                                                                                                                                            
 const [, owner, repo, , pull_number] = url.pathname.split('/');
 
-const mode = program.opts().mode;
+const mode: Mode = program.opts().mode || 'GENERAL';
 
 if (mode === 'BUGS') {
     console.log('Running in BUGS mode');
@@ -20,7 +21,7 @@ if (mode === 'BUGS') {
 }
 
 
-export default {
+export {
     owner,
     repo,
     pull_number,
