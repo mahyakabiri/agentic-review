@@ -3,7 +3,26 @@ import { Command } from 'commander';
 const program = new Command(); 
 
 program.requiredOption('--url <url>', 'GitHub PR URL');
+program.requiredOption('--mode <mode>', 'Mode to run the tool in', ['BUGS', 'SECURITY', 'PERFORMANCE']);
 program.parse();                                                                                                                                                                                                    
                                                           
 const url = new URL(program.opts().url);                                                                                                                                                                            
-export const [, owner, repo, , pull_number] = url.pathname.split('/');
+const [, owner, repo, , pull_number] = url.pathname.split('/');
+
+const mode = program.opts().mode;
+
+if (mode === 'BUGS') {
+    console.log('Running in BUGS mode');
+} else if (mode === 'SECURITY') {
+    console.log('Running in SECURITY mode');
+} else if (mode === 'PERFORMANCE') {
+    console.log('Running in PERFORMANCE mode');
+}
+
+
+export default {
+    owner,
+    repo,
+    pull_number,
+    mode,
+}
