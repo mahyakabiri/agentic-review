@@ -1,25 +1,20 @@
 # agentic-review
 
-A CLI tool that takes a Git PR diff and produces structured, actionable code review comments using the Claude Agent SDK as the agentic layer.
+A CLI tool that fetches a GitHub PR's changed files and produces structured, actionable code review comments using the Claude Agent SDK as the agentic layer.
 
 ```
-$ agentic-review --diff ./my-feature.diff
+$ agentic-review --url https://github.com/owner/repo/pull/42 --mode BUGS
 
-Analyzing diff (3 files, +187 / -42 lines)...
-
-src/components/PaymentForm.tsx
-  ⚠  line 34  Prop `onSuccess` is typed as `any` — consider `(result: PaymentResult) => void`
-  ⚠  line 67  State update inside a loop may cause redundant re-renders; batch with a single setState call
-  💡 line 89  This validation logic is duplicated from AuthForm.tsx — candidate for extraction
-
-src/hooks/usePayment.ts
+── src/components/PaymentForm.tsx (+34/-8)
   🚨 line 12  API key passed as a prop — should come from env or context, not parent component
-  ✅          Error boundary coverage looks solid
+  ⚠  line 34  Prop `onSuccess` is typed as `any` — consider `(result: PaymentResult) => void`
+  💡 line 89  Validation logic duplicated from AuthForm.tsx — candidate for extraction
 
-src/utils/format.ts
-  ✅          No issues found
+── src/hooks/usePayment.ts (+12/-3)
+  ✅  No issues found
 
-Summary: 1 critical · 2 warnings · 1 suggestion
+── src/utils/format.ts (+5/-1)
+  ✅  No issues found
 ```
 
 ---
@@ -35,20 +30,20 @@ This project is the public version of that idea: a standalone, composable CLI th
 ## How it works
 
 ```
-PR diff (stdin or file)
-        │
-        ▼
-  parse & chunk diff
-        │
-        ▼
-  Claude Agent SDK          ← streams structured review output
-  (query per file/chunk)
-        │
-        ▼
-  format + output           ← inline comments, JSON, or Markdown report
+GitHub PR URL
+      │
+      ▼
+fetch changed files via Octokit
+      │
+      ▼
+Claude Agent SDK          ← one query() call per file
+(per-file review loop)
+      │
+      ▼
+format + output           ← colour-coded inline comments
 ```
 
-The agent receives each file's diff with its full context (file path, language, surrounding lines) and produces structured review output. It uses Claude's understanding of the codebase to flag real issues — not linting errors that a static analyser would catch — and categorises them by severity.
+The agent receives each file's diff (and optionally the full file content) and produces structured review output. It flags real issues — not linting errors that a static analyser would catch — and categorises them by severity.
 
 The tool runs entirely locally. No diff content is stored. API calls go directly to Anthropic.
 
@@ -58,11 +53,13 @@ The tool runs entirely locally. No diff content is stored. API calls go directly
 
 | Layer | Choice | Why |
 |---|---|---|
-| Language | TypeScript + Node.js | Type safety for structured output parsing; native ESM |
-| Agentic layer | `@anthropic-ai/claude-agent-sdk` | Official SDK — streams messages, manages multi-turn context, handles tool use |
+| Language | TypeScript + Node.js | Type safety; native ESM |
+| Agentic layer | `@anthropic-ai/claude-agent-sdk` | Streams messages, manages multi-turn context, handles tool use |
+| GitHub integration | `@octokit/rest` | Fetches per-file diffs via `pulls.listFiles()` |
 | CLI interface | `commander` | Minimal, zero-config argument parsing |
-| Output formatting | `chalk` + custom formatter | Coloured inline output; optional JSON/Markdown modes |
-| Testing | `vitest` | Fast, ESM-native, consistent with the frontend toolchain I use daily |
+| Output formatting | `chalk` + custom formatter | Colour-coded inline output by severity |
+| Build | Vite | Bundles to a single ESM binary with `.ts` imports in source |
+| Testing | `vitest` | Fast, ESM-native |
 
 ---
 
@@ -71,66 +68,60 @@ The tool runs entirely locally. No diff content is stored. API calls go directly
 ### Prerequisites
 
 - Node.js 18+
-- An Anthropic API key: `export ANTHROPIC_API_KEY=your_key_here`
+- Claude Code installed and authenticated (the SDK uses its credentials)
+- A GitHub personal access token: `export GITHUB_TOKEN=your_token_here`
 
 ### Install
 
 ```bash
 npm install -g agentic-review
 # or run without installing:
-npx agentic-review --diff ./my.diff
+npx agentic-review --url https://github.com/owner/repo/pull/42
 ```
 
 ### Usage
 
-**From a diff file:**
+**Review a PR (default — diff only):**
 ```bash
-agentic-review --diff ./feature-branch.diff
+agentic-review --url https://github.com/owner/repo/pull/42
 ```
 
-**From git directly:**
+**Focus the review with a mode:**
 ```bash
-git diff main...HEAD | agentic-review --stdin
+agentic-review --url https://github.com/owner/repo/pull/42 --mode BUGS
+agentic-review --url https://github.com/owner/repo/pull/42 --mode SECURITY
+agentic-review --url https://github.com/owner/repo/pull/42 --mode PERFORMANCE
 ```
 
-**As a pre-push hook:**
+**Include full file context alongside the diff:**
 ```bash
-# .git/hooks/pre-push
-git diff main...HEAD | agentic-review --stdin --fail-on critical
+agentic-review --url https://github.com/owner/repo/pull/42 --context full
 ```
 
-**Output as JSON (for CI integration):**
-```bash
-git diff main...HEAD | agentic-review --stdin --format json > review.json
-```
+**All flags:**
 
-**Output as Markdown (for PR comments):**
-```bash
-git diff main...HEAD | agentic-review --stdin --format markdown > review.md
-```
+| Flag | Values | Default |
+|---|---|---|
+| `--url` | GitHub PR URL | required |
+| `--mode` | `BUGS` / `SECURITY` / `PERFORMANCE` / `GENERAL` | `GENERAL` |
+| `--context` | `diff` / `full` | `diff` |
 
 ---
 
-## Configuration
+## Team rule files
 
-Create an `agentic-review.config.json` in your project root:
+Create a `.agentic-review/rules.md` file in your project root to inject project-specific conventions into every review:
 
-```json
-{
-  "language": "typescript",
-  "framework": "react",
-  "strictness": "standard",
-  "ignore": ["*.test.ts", "*.spec.tsx", "dist/**"],
-  "focus": ["security", "performance", "accessibility"],
-  "maxFilesPerRun": 10
-}
+```markdown
+# My Team's Rules
+
+- All API handlers must validate input with Zod before processing
+- Never use `any` — use `unknown` and narrow the type
+- Database calls must go through the repository layer, not directly in route handlers
+- Error responses must follow the shape `{ error: string, code: string }`
 ```
 
-| Option | Values | Default |
-|---|---|---|
-| `strictness` | `"light"` / `"standard"` / `"strict"` | `"standard"` |
-| `focus` | array of concern categories | all categories |
-| `maxFilesPerRun` | integer | `10` |
+The rules are loaded automatically — no flag needed.
 
 ---
 
@@ -145,28 +136,41 @@ Create an `agentic-review.config.json` in your project root:
 
 ---
 
+## CI/CD
+
+The repo ships with two GitHub Actions workflows:
+
+- **CI** (`ci.yml`) — runs install → lint → test → build on every pull request and merge to `main`
+- **Publish** (`publish.yml`) — runs the full pipeline then publishes to npm on tag push (`v*.*.*`) or manual trigger, with a required approval gate via GitHub Environments
+
+To publish a new version:
+```bash
+npm version patch   # bumps version, commits, creates tag
+git push --follow-tags
+```
+
+---
+
 ## Engineering notes
 
 **Why the Agent SDK rather than the plain Anthropic API?**
 
-The Agent SDK's `query()` function streams structured messages and manages multi-turn context natively. For reviewing large diffs, this matters: instead of sending a single massive prompt, the agent can reason about one file at a time and maintain context across the review session (e.g., flagging inconsistency between two files it has already read). The plain API would require me to manage that state manually.
+The Agent SDK's `query()` function streams structured messages and manages multi-turn context natively. For reviewing large diffs, this matters: instead of sending a single massive prompt, the agent reviews one file at a time. The plain API would require managing that state manually.
 
-**Chunking strategy**
+**Two-pass strategy**
 
-Large diffs are chunked by file, not by line count. This keeps each agent turn focused on a coherent unit of change and avoids review comments that lack file context. Files above a configurable line threshold are reviewed in two passes: structure first, then implementation details.
+Files with more than 200 changed lines are reviewed with a structure-only pass — architecture, wrong patterns, missing abstractions. Smaller files get a full line-level review. This avoids a wall of low-value comments on large diffs.
 
 **What it doesn't do**
 
-This tool is not a linter replacement. It won't catch missing semicolons or wrong indentation — your existing ESLint/Prettier setup handles that. It's meant to catch the things static analysis misses: architectural concerns, missing error handling, unclear intent, security issues that require understanding the context.
+This tool is not a linter replacement. It won't catch missing semicolons or wrong indentation — your existing ESLint/Prettier setup handles that. It catches the things static analysis misses: architectural concerns, missing error handling, unclear intent, and security issues that require understanding context.
 
 ---
 
 ## Roadmap
 
 - [ ] GitHub Actions integration (post review as PR comments via GitHub API)
-- [ ] GitLab CI integration (Snapp runs GitLab; this is the real-world use case)
-- [ ] Support for reviewing full file context, not just the diff
-- [ ] Team rule files (`.agentic-review/rules.md`) for project-specific conventions
+- [ ] GitLab CI integration
 - [ ] Token usage reporting per review run
 
 ---
