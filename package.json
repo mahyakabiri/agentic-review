@@ -3,6 +3,10 @@
   "version": "1.0.1",
   "description": "CLI tool that reviews Git PR diffs using the Claude Agent SDK",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mahyakabiri/agentic-review"
+  },
   "keywords": [
     "cli",
     "code-review",

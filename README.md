@@ -167,14 +167,6 @@ This tool is not a linter replacement. It won't catch missing semicolons or wron
 
 ---
 
-## Roadmap
-
-- [ ] GitHub Actions integration (post review as PR comments via GitHub API)
-- [ ] GitLab CI integration
-- [ ] Token usage reporting per review run
-
----
-
 ## Contributing
 
 Issues and PRs welcome. If you're building something similar or have used Claude Code in a team workflow, I'd especially like to hear about your experience with prompt strategies and chunking approaches.
